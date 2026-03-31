@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator</title>
+    <link rel="icon" href="app.ico" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        body { background: #f8f9fb; min-height: 100vh; }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .qr-wrapper {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+        }
+
+        .qr-wrapper canvas, .qr-wrapper img {
+            border-radius: 8px;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:active { transform: translateY(0); }
+
+        .btn-secondary {
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            background: #f3f4f6;
+        }
+
+        .type-tab {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .type-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .type-tab:not(.active):hover {
+            background: #f3f4f6;
+        }
+
+        .fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .color-input-wrapper {
+            position: relative;
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+            cursor: pointer;
+        }
+        .color-input-wrapper input[type="color"] {
+            position: absolute;
+            top: -8px; left: -8px;
+            width: 56px; height: 56px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .toast {
+            position: fixed; bottom: 32px; left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #1f2937; color: white;
+            padding: 12px 24px; border-radius: 12px;
+            font-size: 14px; font-weight: 500;
+            opacity: 0; transition: all 0.3s ease;
+            z-index: 100; pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .size-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%; height: 6px;
+            border-radius: 3px;
+            background: #e5e7eb;
+            outline: none;
+        }
+        .size-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Header -->
+    <header class="gradient-bg text-white">
+        <div class="max-w-4xl mx-auto px-6 py-8 text-center">
+            <h1 class="text-3xl font-bold tracking-tight">QR Code Generator</h1>
+            <p class="mt-2 text-white/70 text-sm">轻量、快速、开源的二维码生成工具</p>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="max-w-4xl mx-auto px-6 -mt-6">
+        <div class="grid md:grid-cols-5 gap-6">
+
+            <!-- Left: Controls -->
+            <div class="md:col-span-3 glass-card rounded-2xl p-6 space-y-6">
+
+                <!-- Content Type Tabs -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">内容类型</label>
+                    <div class="flex gap-2">
+                        <div class="type-tab active px-4 py-2 rounded-lg text-sm font-medium" data-type="url" onclick="switchType('url')">网址</div>
+                        <div class="type-tab px-4 py-2 rounded-lg text-sm font-medium" data-type="text" onclick="switchType('text')">文本</div>
+                        <div class="type-tab px-4 py-2 rounded-lg text-sm font-medium" data-type="wifi" onclick="switchType('wifi')">Wi-Fi</div>
+                        <div class="type-tab px-4 py-2 rounded-lg text-sm font-medium" data-type="email" onclick="switchType('email')">邮箱</div>
+                        <div class="type-tab px-4 py-2 rounded-lg text-sm font-medium" data-type="tel" onclick="switchType('tel')">电话</div>
+                    </div>
+                </div>
+
+                <!-- Input Fields -->
+                <div id="input-area">
+                    <!-- URL -->
+                    <div id="input-url" class="space-y-1">
+                        <label class="block text-sm font-medium text-gray-700">网址</label>
+                        <input id="url" type="url" placeholder="https://example.com"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white/70 transition"
+                            oninput="generateQR()">
+                    </div>
+                    <!-- Text -->
+                    <div id="input-text" class="space-y-1 hidden">
+                        <label class="block text-sm font-medium text-gray-700">文本内容</label>
+                        <textarea id="text" rows="3" placeholder="输入任意文本内容..."
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white/70 resize-none transition"
+                            oninput="generateQR()"></textarea>
+                    </div>
+                    <!-- WiFi -->
+                    <div id="input-wifi" class="space-y-3 hidden">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">网络名称 (SSID)</label>
+                            <input id="wifi-ssid" type="text" placeholder="MyWiFi"
+                                class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white/70 transition"
+                                oninput="generateQR()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">密码</label>
+                            <input id="wifi-pass" type="text" placeholder="WiFi密码"
+                                class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white/70 transition"
+                                oninput="generateQR()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">加密方式</label>
+                            <select id="wifi-enc"
+                                class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white/70 transition"
+                                onchange="generateQR()">
+                                <option value="WPA">WPA/WPA2</option>
+                                <option value="WEP">WEP</option>
+                                <option value="nopass">无密码</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Email -->
+                    <div id="input-email" class="space-y-3 hidden">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">邮箱地址</label>
+                            <input id="email-addr" type="email" placeholder="user@example.com"
+                                class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white/70 transition"
+                                oninput="generateQR()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">主题（可选）</label>
+                            <input id="email-subj" type="text" placeholder="邮件主题"
+                                class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white/70 transition"
+                                oninput="generateQR()">
+                        </div>
+                    </div>
+                    <!-- Telephone -->
+                    <div id="input-tel" class="space-y-1 hidden">
+                        <label class="block text-sm font-medium text-gray-700">电话号码</label>
+                        <input id="tel-num" type="tel" placeholder="+86 13800138000"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white/70 transition"
+                            oninput="generateQR()">
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">尺寸 <span id="size-label" class="text-gray-400">256px</span></label>
+                        <input type="range" id="qr-size" min="128" max="512" step="32" value="256"
+                            class="size-slider" oninput="updateSizeLabel(); generateQR()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">容错级别</label>
+                        <select id="qr-ecl" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-white/70 transition" onchange="generateQR()">
+                            <option value="L">L - 低 (7%)</option>
+                            <option value="M" selected>M - 中 (15%)</option>
+                            <option value="Q">Q - 较高 (25%)</option>
+                            <option value="H">H - 高 (30%)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Colors -->
+                <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-3">
+                        <label class="text-sm font-medium text-gray-700">前景色</label>
+                        <div class="color-input-wrapper">
+                            <input type="color" id="qr-dark" value="#000000" onchange="generateQR()">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="text-sm font-medium text-gray-700">背景色</label>
+                        <div class="color-input-wrapper">
+                            <input type="color" id="qr-light" value="#ffffff" onchange="generateQR()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: QR Preview -->
+            <div class="md:col-span-2 glass-card rounded-2xl p-6 flex flex-col items-center">
+                <div id="qr-preview" class="qr-wrapper p-6 mb-6 flex items-center justify-center" style="min-width: 280px; min-height: 280px;">
+                    <div id="qr-placeholder" class="text-center text-gray-300">
+                        <svg class="w-20 h-20 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM17 14h3v3h-3zM14 17h3v3h-3zM17 20h3v3h-3z"/>
+                        </svg>
+                        <p class="text-sm">输入内容即可生成</p>
+                    </div>
+                    <div id="qrcode"></div>
+                </div>
+
+                <!-- Actions -->
+                <div class="w-full space-y-2">
+                    <button onclick="downloadQR('png')"
+                        class="btn-primary w-full py-3 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/>
+                        </svg>
+                        下载 PNG
+                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="downloadQR('svg')"
+                            class="btn-secondary py-2.5 rounded-xl text-sm font-medium text-gray-600 flex items-center justify-center gap-1.5">
+                            下载 SVG
+                        </button>
+                        <button onclick="copyToClipboard()"
+                            class="btn-secondary py-2.5 rounded-xl text-sm font-medium text-gray-600 flex items-center justify-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            复制
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-gray-400 text-xs mt-12 pb-8">
+        <p>https://www.shnuyl.cn &mdash; 开源免费，数据本地处理，不上传任何信息</p>
+    </footer>
+
+    <script>
+        let currentType = 'url';
+        let qrInstance = null;
+
+        const ECL_MAP = { L: QRCode.CorrectLevel.L, M: QRCode.CorrectLevel.M, Q: QRCode.CorrectLevel.Q, H: QRCode.CorrectLevel.H };
+
+        function switchType(type) {
+            currentType = type;
+            document.querySelectorAll('.type-tab').forEach(t => t.classList.toggle('active', t.dataset.type === type));
+            ['url', 'text', 'wifi', 'email', 'tel'].forEach(t => {
+                document.getElementById('input-' + t).classList.toggle('hidden', t !== type);
+            });
+            generateQR();
+        }
+
+        function getContent() {
+            switch (currentType) {
+                case 'url': return document.getElementById('url').value.trim();
+                case 'text': return document.getElementById('text').value.trim();
+                case 'wifi': {
+                    const ssid = document.getElementById('wifi-ssid').value.trim();
+                    const pass = document.getElementById('wifi-pass').value;
+                    const enc = document.getElementById('wifi-enc').value;
+                    if (!ssid) return '';
+                    return `WIFI:T:${enc};S:${ssid};P:${pass};;`;
+                }
+                case 'email': {
+                    const addr = document.getElementById('email-addr').value.trim();
+                    const subj = document.getElementById('email-subj').value.trim();
+                    if (!addr) return '';
+                    return subj ? `mailto:${addr}?subject=${encodeURIComponent(subj)}` : `mailto:${addr}`;
+                }
+                case 'tel': {
+                    const num = document.getElementById('tel-num').value.trim();
+                    return num ? `tel:${num}` : '';
+                }
+            }
+            return '';
+        }
+
+        function updateSizeLabel() {
+            document.getElementById('size-label').textContent = document.getElementById('qr-size').value + 'px';
+        }
+
+        function generateQR() {
+            const content = getContent();
+            const container = document.getElementById('qrcode');
+            const placeholder = document.getElementById('qr-placeholder');
+
+            if (!content) {
+                container.innerHTML = '';
+                placeholder.classList.remove('hidden');
+                qrInstance = null;
+                return;
+            }
+
+            placeholder.classList.add('hidden');
+            container.innerHTML = '';
+
+            const size = parseInt(document.getElementById('qr-size').value);
+            const ecl = ECL_MAP[document.getElementById('qr-ecl').value] || QRCode.CorrectLevel.M;
+            const dark = document.getElementById('qr-dark').value;
+            const light = document.getElementById('qr-light').value;
+
+            try {
+                qrInstance = new QRCode(container, {
+                    text: content,
+                    width: size,
+                    height: size,
+                    colorDark: dark,
+                    colorLight: light,
+                    correctLevel: ecl
+                });
+            } catch (e) {
+                showToast('内容过长或包含不支持的字符');
+            }
+        }
+
+        function getCanvas() {
+            const container = document.getElementById('qrcode');
+            const canvas = container.querySelector('canvas');
+            const img = container.querySelector('img');
+            if (canvas) return canvas;
+            if (img) {
+                const c = document.createElement('canvas');
+                c.width = img.naturalWidth;
+                c.height = img.naturalHeight;
+                c.getContext('2d').drawImage(img, 0, 0);
+                return c;
+            }
+            return null;
+        }
+
+        function downloadQR(format) {
+            const canvas = getCanvas();
+            if (!canvas) { showToast('请先生成二维码'); return; }
+
+            const content = getContent();
+            const safeName = content.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_').slice(0, 30) || 'qrcode';
+
+            if (format === 'png') {
+                const link = document.createElement('a');
+                link.download = `${safeName}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('PNG 已下载');
+            } else if (format === 'svg') {
+                const size = canvas.width;
+                const ctx = canvas.getContext('2d');
+                const imgData = ctx.getImageData(0, 0, size, size);
+                const dark = document.getElementById('qr-dark').value;
+                const light = document.getElementById('qr-light').value;
+
+                let rects = '';
+                const moduleSize = findModuleSize(imgData, size);
+
+                for (let y = 0; y < size; y += moduleSize) {
+                    for (let x = 0; x < size; x += moduleSize) {
+                        const idx = (y * size + x) * 4;
+                        if (imgData.data[idx] < 128) {
+                            rects += `<rect x="${x}" y="${y}" width="${moduleSize}" height="${moduleSize}" fill="${dark}"/>`;
+                        }
+                    }
+                }
+
+                const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+  <rect width="${size}" height="${size}" fill="${light}"/>
+  ${rects}
+</svg>`;
+
+                const blob = new Blob([svg], { type: 'image/svg+xml' });
+                const link = document.createElement('a');
+                link.download = `${safeName}.svg`;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                URL.revokeObjectURL(link.href);
+                showToast('SVG 已下载');
+            }
+        }
+
+        function findModuleSize(imgData, size) {
+            // Detect module size by finding the first dark pixel row width
+            let firstRowWidth = 1;
+            for (let x = 1; x < size; x++) {
+                const idx = x * 4;
+                const prevIdx = (x - 1) * 4;
+                if (imgData.data[idx] < 128 && imgData.data[prevIdx] < 128) {
+                    firstRowWidth++;
+                } else break;
+            }
+            return firstRowWidth || 1;
+        }
+
+        async function copyToClipboard() {
+            const canvas = getCanvas();
+            if (!canvas) { showToast('请先生成二维码'); return; }
+            try {
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                showToast('已复制到剪贴板');
+            } catch {
+                showToast('复制失败，请尝试下载');
+            }
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+    </script>
+</body>
+</html>
